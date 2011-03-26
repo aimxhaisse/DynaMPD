@@ -159,6 +159,7 @@ class Core(mpd.MPDClient):
             cfg_quiet = config.getboolean('s', 'quiet') if config.has_option('s', 'quiet')      else False
             cfg_msong = config.getint('s', 'max_songs') if config.has_option('s', 'max_songs')  else 3
             cfg_wait  = config.getint('s', 'wait')      if config.has_option('s', 'wait')       else 20
+            cfg_mplen = config.getint('s', 'max_plen')  if config.has_option('s', 'max_plen')   else 0
             if cfile:
                 cfile.close()
 
@@ -168,12 +169,13 @@ class Core(mpd.MPDClient):
             parser.add_option('-p', '--port', dest='port', type='int', help='MPD port', default=cfg_port)
             parser.add_option('-q', '--quiet', dest='verbose', action="store_false", help='Quiet mode', default=(not cfg_quiet))
             parser.add_option('-m', '--max-songs', dest='max_songs', type='int', help='Maximum songs to append each time', default=cfg_msong)
+            parser.add_option('-l', '--max-playlen', dest='max_plen', type='int', help='Maximum songs in the playlist', default=cfg_mplen)
             parser.add_option('-w', '--wait', dest='wait', type='int', help='Percent of current song length to wait before requesting new songs', default=cfg_wait)
             opts, _ = parser.parse_args()
-            return (opts.host, opts.password, opts.port, opts.verbose, opts.max_songs, opts.wait)
+            return (opts.host, opts.password, opts.port, opts.verbose, opts.max_songs, opts.wait, opts.max_plen)
 
         mpd.MPDClient.__init__(self)
-        host, password, port, self.verbose, self.max_songs, self.wait = getopts()
+        host, password, port, self.verbose, self.max_songs, self.wait, self.max_plen = getopts()
         self.connect(host, port)
         if password:
             self.password(password)
@@ -196,6 +198,9 @@ class Core(mpd.MPDClient):
                         prev = (artist, title)
                         try:
                             for fname in dynampd.get_a_selection(artist, title):
+                                if self.max_plen > 0 and len(self.playlist()) > self.max_plen:
+                                    print 'Playlist is full, quitting...'
+                                    return
                                 self.add(fname)
                         except (ParseError, IOError):
                             prev = (None, None)
